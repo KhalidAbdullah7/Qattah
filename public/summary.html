@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ملخص الطلبات - القطة</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-dark: #5B21B6;
+      --primary-light: #EDE9FE;
+      --bg: #F5F3FF;
+      --card: #ffffff;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --success: #059669;
+      --success-light: #D1FAE5;
+      --warning: #D97706;
+      --warning-light: #FEF3C7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans Arabic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 30px;
+    }
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 20px 16px 16px;
+    }
+    .header-inner { max-width: 700px; margin: 0 auto; }
+    .header h1 { font-size: 1.4rem; font-weight: 700; }
+    .header .meta { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .status-open { background: var(--success-light); color: var(--success); }
+    .status-closed { background: var(--warning-light); color: var(--warning); }
+    .container { max-width: 700px; margin: 0 auto; padding: 16px; }
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 16px; align-items: center;
+    }
+    .btn {
+      padding: 10px 18px; border-radius: 10px;
+      font-family: inherit; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.2s;
+    }
+    .btn-danger { background: #FEE2E2; color: #DC2626; }
+    .btn-danger:hover { background: #DC2626; color: white; }
+    .btn-green { background: var(--success-light); color: var(--success); }
+    .btn-green:hover { background: var(--success); color: white; }
+    .btn-ghost {
+      background: white; color: var(--muted);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-purple { background: var(--primary); color: white; }
+    .btn-purple:hover { background: var(--primary-dark); }
+    .auto-refresh {
+      margin-right: auto;
+      font-size: 0.8rem; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .refresh-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success); display: inline-block;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .grand-total-card {
+      background: var(--primary);
+      color: white; border-radius: 18px;
+      padding: 20px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .grand-total-label { font-size: 0.95rem; opacity: 0.9; }
+    .grand-total-amount { font-size: 2rem; font-weight: 700; }
+    .grand-total-count { font-size: 0.8rem; opacity: 0.75; margin-top: 2px; }
+    .order-card {
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.07);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .order-header {
+      padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .order-name { font-size: 1.05rem; font-weight: 700; }
+    .order-total-badge {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-weight: 700; font-size: 1rem;
+      white-space: nowrap;
+    }
+    .order-items { padding: 12px 18px; }
+    .order-item-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0;
+      font-size: 0.9rem;
+      border-bottom: 1px dashed var(--border);
+    }
+    .order-item-row:last-child { border-bottom: none; }
+    .order-item-name { color: var(--text); }
+    .order-item-qty { color: var(--muted); font-size: 0.82rem; margin-top: 1px; }
+    .order-item-price { font-weight: 600; color: var(--primary); }
+    .order-footer {
+      padding: 10px 18px;
+      background: #FAFAFA;
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+    .btn-copy-amount {
+      padding: 8px 16px;
+      background: var(--primary-light); color: var(--primary);
+      border: none; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-copy-amount:hover { background: var(--primary); color: white; }
+    .btn-copy-amount.copied { background: var(--success-light); color: var(--success); }
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; }
+    .copy-all-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.07);
+      margin-bottom: 16px;
+    }
+    .copy-all-title {
+      font-size: 0.9rem; font-weight: 600; color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .copy-all-text {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px; font-size: 0.85rem;
+      white-space: pre-wrap;
+      color: var(--text);
+      margin-bottom: 10px;
+      line-height: 1.7;
+      direction: rtl;
+    }
+    .loading { text-align: center; padding: 80px 20px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <h1 id="pageTitle">📊 ملخص الطلبات</h1>
+    <div class="meta">
+      <span id="statusBadge"></span>
+      <span id="orderCountMeta"></span>
+    </div>
+  </div>
+</div>
+
+<div id="loadingState" class="loading">جاري التحميل...</div>
+
+<div id="mainContent" style="display:none">
+  <div class="container">
+
+    <div class="controls">
+      <button class="btn btn-ghost" onclick="refresh()">🔄 تحديث</button>
+      <button id="toggleStatusBtn" class="btn" onclick="toggleStatus()">...</button>
+      <button class="btn btn-purple" onclick="copyAll()">📋 نسخ الكل للقطة</button>
+      <div class="auto-refresh">
+        <span class="refresh-dot"></span>
+        تحديث تلقائي كل 15 ثانية
+      </div>
+    </div>
+
+    <div class="grand-total-card">
+      <div>
+        <div class="grand-total-label">إجمالي الطلبات</div>
+        <div class="grand-total-amount" id="grandTotal">0 ريال</div>
+        <div class="grand-total-count" id="orderCount">0 أشخاص</div>
+      </div>
+      <div style="font-size:2.5rem">💰</div>
+    </div>
+
+    <div class="copy-all-card" id="copyAllCard" style="display:none">
+      <div class="copy-all-title">📋 نص جاهز للقطة (انسخه وأرسله)</div>
+      <div class="copy-all-text" id="copyAllText"></div>
+      <button class="btn btn-purple" style="width:100%" id="copyAllBtn" onclick="doCopyAll()">نسخ النص</button>
+    </div>
+
+    <div id="ordersList"></div>
+
+  </div>
+</div>
+
+<script>
+const sessionId = new URLSearchParams(location.search).get('id');
+let summaryData = null;
+let autoRefreshTimer = null;
+
+async function loadSummary() {
+  if (!sessionId) return;
+  try {
+    const res = await fetch(`/api/summary/${sessionId}`);
+    if (!res.ok) { document.getElementById('loadingState').textContent = 'لم يتم العثور على الجلسة'; return; }
+    summaryData = await res.json();
+    render();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } catch {
+    document.getElementById('loadingState').textContent = 'فشل التحميل، تحقق من الاتصال';
+  }
+}
+
+function render() {
+  if (!summaryData) return;
+
+  document.getElementById('pageTitle').textContent = `📊 طلبات من ${summaryData.restaurant}`;
+  document.title = `قطة | ${summaryData.restaurant}`;
+
+  const statusBadge = document.getElementById('statusBadge');
+  const isOpen = summaryData.status === 'open';
+  statusBadge.className = `status-badge ${isOpen ? 'status-open' : 'status-closed'}`;
+  statusBadge.textContent = isOpen ? '🟢 الطلبات مفتوحة' : '🔒 الطلبات مغلقة';
+
+  const toggleBtn = document.getElementById('toggleStatusBtn');
+  if (isOpen) {
+    toggleBtn.textContent = '🔒 إغلاق الطلبات';
+    toggleBtn.className = 'btn btn-danger';
+  } else {
+    toggleBtn.textContent = '🔓 فتح الطلبات';
+    toggleBtn.className = 'btn btn-green';
+  }
+
+  document.getElementById('grandTotal').textContent = summaryData.grandTotal.toFixed(2) + ' ريال';
+  const count = summaryData.orders.length;
+  document.getElementById('orderCount').textContent = count === 0 ? 'لا يوجد طلبات بعد' :
+    count === 1 ? 'شخص واحد' : `${count} أشخاص`;
+  document.getElementById('orderCountMeta').textContent = `${count} طلب مسجل`;
+
+  const list = document.getElementById('ordersList');
+  if (count === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><p>لا يوجد طلبات بعد<br>شارك الرابط مع زملاءك</p></div>`;
+    document.getElementById('copyAllCard').style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = summaryData.orders.map(order => `
+    <div class="order-card">
+      <div class="order-header">
+        <div>
+          <div class="order-name">👤 ${order.name}</div>
+        </div>
+        <div class="order-total-badge">${order.total.toFixed(2)} ريال</div>
+      </div>
+      <div class="order-items">
+        ${order.items.map(item => `
+          <div class="order-item-row">
+            <div>
+              <div class="order-item-name">${item.name}</div>
+              <div class="order-item-qty">× ${item.quantity}</div>
+            </div>
+            <div class="order-item-price">${(item.price * item.quantity).toFixed(2)} ريال</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="order-footer">
+        <button class="btn-copy-amount" onclick="copyAmount('${order.name}', ${order.total}, this)">
+          نسخ المبلغ للقطة
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  const copyText = buildCopyText();
+  document.getElementById('copyAllText').textContent = copyText;
+  document.getElementById('copyAllCard').style.display = 'block';
+}
+
+function buildCopyText() {
+  if (!summaryData || summaryData.orders.length === 0) return '';
+  let text = `طلبات من ${summaryData.restaurant}:\n`;
+  summaryData.orders.forEach(o => {
+    text += `- ${o.name}: ${o.total.toFixed(2)} ريال\n`;
+  });
+  text += `\nالمجموع: ${summaryData.grandTotal.toFixed(2)} ريال`;
+  return text;
+}
+
+function copyAmount(name, total, btn) {
+  const text = `${name}: ${total.toFixed(2)} ريال`;
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    btn.textContent = '✓ تم النسخ';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'نسخ المبلغ للقطة'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyAll() {
+  const card = document.getElementById('copyAllCard');
+  card.scrollIntoView({ behavior: 'smooth' });
+  card.style.outline = '2px solid var(--primary)';
+  setTimeout(() => card.style.outline = 'none', 1500);
+}
+
+function doCopyAll() {
+  const text = document.getElementById('copyAllText').textContent;
+  const btn = document.getElementById('copyAllBtn');
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ تم النسخ!';
+    setTimeout(() => btn.textContent = 'نسخ النص', 2000);
+  });
+}
+
+async function toggleStatus() {
+  if (!summaryData) return;
+  const newStatus = summaryData.status === 'open' ? 'closed' : 'open';
+  const label = newStatus === 'closed' ? 'إغلاق الطلبات؟' : 'فتح الطلبات مجدداً؟';
+  if (!confirm(label)) return;
+  await fetch(`/api/session/${sessionId}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus })
+  });
+  await loadSummary();
+}
+
+async function refresh() {
+  await loadSummary();
+}
+
+loadSummary();
+autoRefreshTimer = setInterval(loadSummary, 15000);
+</script>
+</body>
+</html>

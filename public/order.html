@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>اختر طلبك</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-dark: #5B21B6;
+      --primary-light: #EDE9FE;
+      --bg: #F5F3FF;
+      --card: #ffffff;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --success: #059669;
+      --success-light: #D1FAE5;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans Arabic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 120px;
+    }
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 20px 16px 16px;
+      text-align: center;
+    }
+    .header .restaurant { font-size: 1.4rem; font-weight: 700; }
+    .header .subtitle { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
+    .status-closed {
+      background: #FEF3C7; color: #92400E;
+      text-align: center; padding: 10px;
+      font-weight: 600; font-size: 0.9rem;
+    }
+    .container { max-width: 580px; margin: 0 auto; padding: 16px; }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.07);
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 0.9rem; font-weight: 600;
+      color: var(--muted); margin-bottom: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    label { display: block; font-weight: 500; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px; font-family: inherit; font-size: 1rem;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+    .menu-grid { display: flex; flex-direction: column; gap: 10px; }
+    .menu-item-card {
+      border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; transition: border-color 0.2s, background 0.2s;
+    }
+    .menu-item-card.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .item-info { flex: 1; }
+    .item-name { font-weight: 600; font-size: 1rem; }
+    .item-price {
+      font-size: 0.85rem; color: var(--muted); margin-top: 2px;
+    }
+    .qty-controls { display: flex; align-items: center; gap: 10px; }
+    .qty-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%; border: 2px solid var(--primary);
+      background: white; color: var(--primary);
+      font-size: 1.2rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; line-height: 1;
+    }
+    .qty-btn:hover { background: var(--primary); color: white; }
+    .qty-num {
+      font-size: 1.1rem; font-weight: 700;
+      min-width: 24px; text-align: center;
+      color: var(--primary);
+    }
+    .footer-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1.5px solid var(--border);
+      padding: 14px 16px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    }
+    .footer-inner { max-width: 580px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+    .cart-total {
+      flex: 1; font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .cart-total strong { font-size: 1.1rem; color: var(--primary); display: block; }
+    .btn-submit {
+      padding: 12px 24px;
+      background: var(--primary); color: white;
+      border: none; border-radius: 12px;
+      font-family: inherit; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .btn-submit:hover { background: var(--primary-dark); }
+    .btn-submit:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+    .success-screen {
+      text-align: center; padding: 40px 20px; display: none;
+    }
+    .success-icon { font-size: 4rem; margin-bottom: 16px; }
+    .success-screen h2 { font-size: 1.5rem; font-weight: 700; color: var(--success); }
+    .success-total {
+      font-size: 2rem; font-weight: 700; color: var(--primary);
+      margin: 12px 0;
+    }
+    .success-screen p { color: var(--muted); margin-bottom: 20px; }
+    .btn-modify {
+      background: none; border: 1.5px solid var(--primary);
+      color: var(--primary); border-radius: 10px;
+      padding: 10px 20px; font-family: inherit; font-size: 0.95rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-modify:hover { background: var(--primary-light); }
+    .loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 1rem; }
+    .error-screen { text-align: center; padding: 60px 20px; }
+    .error-screen h2 { color: #DC2626; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div id="loadingState" class="loading">جاري التحميل...</div>
+
+<div id="errorState" class="error-screen" style="display:none">
+  <h2>😕 لم يتم العثور على الطلب</h2>
+  <p style="color:var(--muted)">تحقق من الرابط أو اطلب من المسؤول مشاركته مجدداً</p>
+</div>
+
+<div id="closedBanner" class="status-closed" style="display:none">
+  🔒 الطلبات مغلقة — لا يمكن تقديم طلبات جديدة
+</div>
+
+<div id="mainContent" style="display:none">
+  <div class="header">
+    <div class="restaurant" id="restaurantName">...</div>
+    <div class="subtitle">اختر طلبك من القائمة أدناه</div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="card-title">👤 اسمك</div>
+      <input type="text" id="userName" placeholder="أدخل اسمك هنا..." autocomplete="name">
+    </div>
+
+    <div class="card">
+      <div class="card-title">🍽️ القائمة</div>
+      <div class="menu-grid" id="menuGrid"></div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <div class="footer-inner">
+      <div class="cart-total">
+        إجمالي طلبك
+        <strong id="totalDisplay">0 ريال</strong>
+      </div>
+      <button class="btn-submit" id="submitBtn" onclick="submitOrder()">تأكيد الطلب</button>
+    </div>
+  </div>
+</div>
+
+<div id="successScreen" class="success-screen">
+  <div class="success-icon">🎉</div>
+  <h2>تم تسجيل طلبك!</h2>
+  <div class="success-total" id="successTotal">0 ريال</div>
+  <p>هذا هو إجمالي نصيبك في القطة</p>
+  <button class="btn-modify" onclick="showMain()">تعديل الطلب</button>
+</div>
+
+<script>
+const sessionId = new URLSearchParams(location.search).get('id');
+let sessionData = null;
+let quantities = {};
+
+async function init() {
+  if (!sessionId) { showError(); return; }
+  try {
+    const res = await fetch(`/api/session/${sessionId}`);
+    if (!res.ok) { showError(); return; }
+    sessionData = await res.json();
+
+    document.getElementById('restaurantName').textContent = sessionData.restaurant;
+    document.title = `طلب من ${sessionData.restaurant}`;
+
+    if (sessionData.status === 'closed') {
+      document.getElementById('closedBanner').style.display = 'block';
+      document.getElementById('submitBtn').disabled = true;
+    }
+
+    sessionData.items.forEach(item => quantities[item.name] = 0);
+    renderMenu();
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } catch {
+    showError();
+  }
+}
+
+function showError() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('errorState').style.display = 'block';
+}
+
+function showMain() {
+  document.getElementById('successScreen').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+}
+
+function renderMenu() {
+  const grid = document.getElementById('menuGrid');
+  grid.innerHTML = '';
+  sessionData.items.forEach(item => {
+    const qty = quantities[item.name] || 0;
+    const card = document.createElement('div');
+    card.className = `menu-item-card ${qty > 0 ? 'selected' : ''}`;
+    card.id = `card-${item.name}`;
+    card.innerHTML = `
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-price">${item.price.toFixed(2)} ريال</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn" onclick="changeQty('${item.name}', -1)">−</button>
+        <span class="qty-num" id="qty-${item.name}">${qty}</span>
+        <button class="qty-btn" onclick="changeQty('${item.name}', 1)">+</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  updateTotal();
+}
+
+function changeQty(name, delta) {
+  quantities[name] = Math.max(0, (quantities[name] || 0) + delta);
+  document.getElementById(`qty-${name}`).textContent = quantities[name];
+  const card = document.getElementById(`card-${name}`);
+  if (quantities[name] > 0) card.classList.add('selected');
+  else card.classList.remove('selected');
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = sessionData.items.reduce((sum, item) => {
+    return sum + item.price * (quantities[item.name] || 0);
+  }, 0);
+  document.getElementById('totalDisplay').textContent = total.toFixed(2) + ' ريال';
+  return total;
+}
+
+async function submitOrder() {
+  const name = document.getElementById('userName').value.trim();
+  if (!name) { alert('أدخل اسمك أولاً'); document.getElementById('userName').focus(); return; }
+
+  const selectedItems = sessionData.items
+    .filter(item => (quantities[item.name] || 0) > 0)
+    .map(item => ({ name: item.name, price: item.price, quantity: quantities[item.name] }));
+
+  if (selectedItems.length === 0) { alert('اختر صنفاً واحداً على الأقل'); return; }
+
+  const total = updateTotal();
+  const btn = document.getElementById('submitBtn');
+  btn.textContent = 'جاري الإرسال...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/order/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, items: selectedItems })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'حدث خطأ'); btn.textContent = 'تأكيد الطلب'; btn.disabled = false; return; }
+
+    document.getElementById('successTotal').textContent = total.toFixed(2) + ' ريال';
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('successScreen').style.display = 'block';
+  } catch {
+    alert('فشل الإرسال، تحقق من الاتصال');
+    btn.textContent = 'تأكيد الطلب';
+    btn.disabled = false;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

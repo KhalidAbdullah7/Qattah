@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "قطة الدوام",
+    "slug": "qattah",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#7C3AED"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.qattah.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#7C3AED"
+      },
+      "package": "com.qattah.app"
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.1:3001"
+    }
+  }
+}

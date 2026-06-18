@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>قطة الدوام</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-dark: #5B21B6;
+      --primary-light: #EDE9FE;
+      --bg: #F5F3FF;
+      --card: #ffffff;
+      --text: #1F2937;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --success: #059669;
+      --danger: #DC2626;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans Arabic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .container { max-width: 580px; margin: 0 auto; }
+    .header { text-align: center; padding: 28px 0 20px; }
+    .logo { font-size: 3rem; margin-bottom: 8px; }
+    h1 { font-size: 1.9rem; font-weight: 700; color: var(--primary-dark); }
+    .subtitle { color: var(--muted); margin-top: 4px; font-size: 0.95rem; }
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 2px 16px rgba(124,58,237,0.08);
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    label { display: block; font-weight: 500; font-size: 0.875rem; margin-bottom: 6px; color: var(--text); }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      color: var(--text);
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+    .menu-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 40px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .btn-del {
+      width: 38px; height: 38px;
+      border: none; border-radius: 8px;
+      background: #FEF2F2; color: var(--danger);
+      font-size: 1rem; cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-del:hover { background: #FEE2E2; }
+    .btn-add-row {
+      width: 100%; padding: 10px;
+      background: none;
+      border: 2px dashed var(--primary);
+      border-radius: 10px;
+      color: var(--primary);
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 4px;
+    }
+    .btn-add-row:hover { background: var(--primary-light); }
+    .btn-primary {
+      width: 100%; padding: 14px;
+      background: var(--primary);
+      color: white; border: none;
+      border-radius: 12px;
+      font-family: inherit; font-size: 1.05rem; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:active { transform: scale(0.98); }
+    .result { display: none; }
+    .success-badge {
+      background: #D1FAE5; color: var(--success);
+      border-radius: 8px; padding: 10px 14px;
+      font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .link-block { margin-bottom: 14px; }
+    .link-label { font-size: 0.8rem; color: var(--muted); font-weight: 500; margin-bottom: 5px; }
+    .link-row { display: flex; gap: 8px; align-items: stretch; }
+    .link-box {
+      flex: 1; background: var(--bg);
+      border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; font-size: 0.8rem;
+      color: var(--text); word-break: break-all;
+      line-height: 1.4;
+    }
+    .btn-copy {
+      padding: 8px 14px;
+      background: white; border: 1.5px solid var(--border);
+      border-radius: 10px; font-family: inherit; font-size: 0.82rem;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-copy:hover { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-copy.copied { background: var(--success); color: white; border-color: var(--success); }
+    .btn-summary {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--primary); color: white;
+      border-radius: 12px; padding: 14px;
+      text-decoration: none; font-weight: 600; font-size: 1rem;
+      margin-top: 4px; transition: background 0.2s;
+    }
+    .btn-summary:hover { background: var(--primary-dark); }
+    .divider { border: none; border-top: 1.5px solid var(--border); margin: 16px 0; }
+    .tip {
+      background: var(--primary-light); border-radius: 10px;
+      padding: 10px 14px; font-size: 0.82rem; color: var(--primary-dark);
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">🍔</div>
+    <h1>قطة الدوام</h1>
+    <p class="subtitle">اطلب، اقسّم، ارتاح</p>
+  </div>
+
+  <div class="card" id="formCard">
+    <div class="card-title">📋 إنشاء طلب جديد</div>
+
+    <label>اسم المطعم</label>
+    <input type="text" id="restaurant" placeholder="مثال: البيك، ماكدونالدز، الشيخ الشاورما..." style="margin-bottom:18px">
+
+    <div class="card-title">🍽️ أصناف المنيو</div>
+    <div class="tip">أضف الأصناف المتاحة مع أسعارها — زملاءك سيختارون منها</div>
+    <div id="menuItems">
+      <div class="menu-row">
+        <input type="text" placeholder="اسم الصنف" class="item-name">
+        <input type="number" placeholder="ريال" class="item-price" min="0" step="0.5">
+        <button class="btn-del" onclick="removeRow(this)">🗑</button>
+      </div>
+    </div>
+    <button class="btn-add-row" onclick="addRow()">＋ إضافة صنف</button>
+
+    <hr class="divider">
+    <button class="btn-primary" onclick="createSession()">إنشاء الطلب ✨</button>
+  </div>
+
+  <div class="card result" id="result">
+    <div class="success-badge">✅ تم إنشاء الطلب بنجاح!</div>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:16px">شارك الرابط أدناه مع زملاءك — يفتحونه من جوالاتهم ويختارون</p>
+
+    <div id="links"></div>
+
+    <hr class="divider">
+    <a id="summaryLink" class="btn-summary" href="#">📊 فتح ملخص الطلبات والقطة</a>
+  </div>
+</div>
+
+<script>
+function addRow() {
+  const div = document.createElement('div');
+  div.className = 'menu-row';
+  div.innerHTML = `
+    <input type="text" placeholder="اسم الصنف" class="item-name">
+    <input type="number" placeholder="ريال" class="item-price" min="0" step="0.5">
+    <button class="btn-del" onclick="removeRow(this)">🗑</button>
+  `;
+  document.getElementById('menuItems').appendChild(div);
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('.menu-row');
+  if (rows.length > 1) btn.closest('.menu-row').remove();
+}
+
+async function createSession() {
+  const restaurant = document.getElementById('restaurant').value.trim();
+  if (!restaurant) { alert('أدخل اسم المطعم'); return; }
+
+  const nameInputs = document.querySelectorAll('.item-name');
+  const priceInputs = document.querySelectorAll('.item-price');
+  const items = [];
+  for (let i = 0; i < nameInputs.length; i++) {
+    const name = nameInputs[i].value.trim();
+    const price = parseFloat(priceInputs[i].value);
+    if (name && !isNaN(price) && price > 0) items.push({ name, price });
+  }
+  if (items.length === 0) { alert('أضف صنفاً واحداً على الأقل مع سعره'); return; }
+
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = 'جاري الإنشاء...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurant, items })
+    });
+    const data = await res.json();
+
+    document.getElementById('formCard').style.display = 'none';
+
+    const localURL = `${location.protocol}//${location.hostname}:${data.port}/order.html?id=${data.id}`;
+    const networkURL = `http://${data.networkIP}:${data.port}/order.html?id=${data.id}`;
+
+    document.getElementById('links').innerHTML = `
+      <div class="link-block">
+        <div class="link-label">🌐 رابط الزملاء (شبكة الدوام — يفتح من الجوال)</div>
+        <div class="link-row">
+          <div class="link-box">${networkURL}</div>
+          <button class="btn-copy" onclick="copyText('${networkURL}', this)">نسخ</button>
+        </div>
+      </div>
+      <div class="link-block">
+        <div class="link-label">💻 رابط محلي (على جهازك فقط)</div>
+        <div class="link-row">
+          <div class="link-box">${localURL}</div>
+          <button class="btn-copy" onclick="copyText('${localURL}', this)">نسخ</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('summaryLink').href = `/summary.html?id=${data.id}`;
+    document.getElementById('result').style.display = 'block';
+  } catch {
+    alert('حدث خطأ، حاول مجدداً');
+    btn.textContent = 'إنشاء الطلب ✨';
+    btn.disabled = false;
+  }
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ تم';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'نسخ'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>
