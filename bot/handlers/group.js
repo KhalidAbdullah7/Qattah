@@ -3,13 +3,42 @@ const { detectSessionStart, parseOrder } = require('../ai');
 const {
   createSession, getActiveSession, closeSession,
   insertMenuItems, getMenuItems, upsertOrder, getOrder,
-  getSessionOrders, markDmSent,
+  getLatestMenuForRestaurant,
+  getSessionOrders,
 } = require('../database');
 const { search: scraperSearch, getMenu: scraperMenu } = require('../scrapers');
-const { buildUserDM, buildAdminSummary } = require('../payment');
+const { buildOrderSummary } = require('../payment');
 const { DELIVERY_APPS, ADMIN_TRIGGERS, ORDER_START_PATTERNS } = require('../config');
 
+const activatedGroups = new Set();
 const pendingRestaurantSearch = new Map();
+
+function activateGroup(groupId) {
+  activatedGroups.add(groupId);
+}
+
+function isGroupActivated(groupId) {
+  return activatedGroups.has(groupId);
+}
+
+async function handleStartCommand(ctx) {
+  if (ctx.chat.type === 'private') {
+    await ctx.reply(
+      'استخدم البوت داخل القروب فقط.\n\n' +
+      'بعد ما تضيفني للقروب، اكتب /start هناك وبعدين ابدأ الطلب بعبارة مثل: بنطلب من البيك.'
+    );
+    return;
+  }
+
+  const groupId = String(ctx.chat.id);
+  activateGroup(groupId);
+
+  await ctx.reply(
+    '✅ تم تفعيل البوت في القروب.\n\n' +
+    'اكتب: بنطلب من البيك\n' +
+    'وبعدها أختار تطبيق التوصيل، وأنا أسحب المنيو تلقائيًا.'
+  );
+}
 
 function buildAppKeyboard() {
   const kb = new InlineKeyboard();
@@ -19,18 +48,36 @@ function buildAppKeyboard() {
   return kb;
 }
 
+async function searchInApps(restaurant, preferredApp) {
+  const appKeys = Object.keys(DELIVERY_APPS);
+  const orderedApps = preferredApp
+    ? [preferredApp, ...appKeys.filter((key) => key !== preferredApp)]
+    : appKeys;
+
+  for (const appKey of orderedApps) {
+    try {
+      const results = await scraperSearch(appKey, restaurant);
+      if (Array.isArray(results) && results.length > 0) {
+        return { appKey, results: results.slice(0, 8) };
+      }
+    } catch {
+      // try next app
+    }
+  }
+
+  return { appKey: preferredApp || null, results: [] };
+}
+
 async function handleGroupMessage(ctx) {
   const text = ctx.message?.text;
   if (!text) return;
 
   const groupId = String(ctx.chat.id);
+  if (!isGroupActivated(groupId)) return;
+
   const userId = String(ctx.from.id);
   const username = ctx.from.username || null;
   const firstName = ctx.from.first_name || username || 'مجهول';
-
-  const isAdmin = ctx.message.from.id === ctx.chat.id ||
-    (await ctx.getChatMember(ctx.from.id)).status === 'administrator' ||
-    (await ctx.getChatMember(ctx.from.id)).status === 'creator';
 
   const lowerText = text.toLowerCase().trim();
 
@@ -74,21 +121,25 @@ async function handleSessionStart(ctx, text, groupId, userId) {
   } catch (err) {
     console.error('Session start error:', err.message);
     if (err.message.includes('API key')) {
-      await ctx.reply('❌ Claude API غير مضبوط. المدير يضيفه بـ /settings');
+      await ctx.reply('❌ Claude API غير مضبوط، لكن تقدر تبدأ بـ /order اسم المطعم.');
     }
   }
 }
 
-async function startRestaurantSearch(ctx, groupId, restaurant, appKey) {
-  const appName = DELIVERY_APPS[appKey]?.nameAr || appKey;
-  const searching = await ctx.reply(`🔍 أدور على *${restaurant}* في ${appName}...`, { parse_mode: 'Markdown' });
+async function startRestaurantSearch(ctx, groupId, restaurant, preferredApp) {
+  const preferredName = preferredApp && DELIVERY_APPS[preferredApp]
+    ? DELIVERY_APPS[preferredApp].nameAr
+    : 'تطبيقات التوصيل';
+  const searching = await ctx.reply(`🔍 أدور على *${restaurant}* في ${preferredName}...`, { parse_mode: 'Markdown' });
 
   try {
-    const results = await scraperSearch(appKey, restaurant);
+    const { appKey, results } = await searchInApps(restaurant, preferredApp);
 
     if (!results || results.length === 0) {
-      await ctx.api.editMessageText(ctx.chat.id, searching.message_id,
-        `❌ ما لقيت "${restaurant}" في ${appName}. تأكد من الاسم وحاول مجدداً.`
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        searching.message_id,
+        `❌ ما لقيت "${restaurant}" في كيتا/هنقرستيشن/جاهز. جرّب اسم مطعم أوضح.`
       );
       return;
     }
@@ -102,13 +153,18 @@ async function startRestaurantSearch(ctx, groupId, restaurant, appKey) {
     });
     kb.text('❌ إلغاء', `cancel:${groupId}`);
 
-    await ctx.api.editMessageText(ctx.chat.id, searching.message_id,
+    const appName = DELIVERY_APPS[appKey]?.nameAr || appKey;
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      searching.message_id,
       `🔍 نتائج *${restaurant}* في ${appName}:\n\nاختار المطعم الصح:`,
       { parse_mode: 'Markdown', reply_markup: kb }
     );
   } catch (err) {
-    await ctx.api.editMessageText(ctx.chat.id, searching.message_id,
-      `⚠️ ما قدرت أدور في ${appName}. تأكد من الإنترنت.`
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      searching.message_id,
+      '⚠️ ما قدرت أسحب المطاعم حالياً من تطبيقات التوصيل. جرّب بعد دقيقة.'
     );
     console.error('Search error:', err.message);
   }
@@ -117,9 +173,6 @@ async function startRestaurantSearch(ctx, groupId, restaurant, appKey) {
 async function handleAppSelection(ctx, appKey, groupId) {
   const pending = pendingRestaurantSearch.get(groupId);
   if (!pending) { await ctx.answerCallbackQuery(); return; }
-
-  pending.appKey = appKey;
-  pendingRestaurantSearch.set(groupId, pending);
 
   await ctx.answerCallbackQuery();
   await startRestaurantSearch(ctx, groupId, pending.restaurant, appKey);
@@ -138,14 +191,38 @@ async function handleRestaurantPick(ctx, groupId, resultIndex) {
   const loadingMsg = await ctx.reply(`⏳ جاري تحميل منيو *${chosen.name}*...`, { parse_mode: 'Markdown' });
 
   try {
-    const menuCategories = await scraperMenu(pending.appKey, chosen.url);
-    const allItems = menuCategories.flatMap(cat =>
-      cat.items.map(item => ({ ...item, category: cat.category }))
-    );
+    const appKey = chosen.appKey || pending.appKey;
+    const cachedItems = getLatestMenuForRestaurant(appKey, chosen.name);
+    let allItems = [];
+    let menuCategories = [];
+
+    if (cachedItems.length > 0) {
+      allItems = cachedItems.map((item) => ({
+        category: item.category || 'القائمة',
+        name: item.name,
+        price: item.price,
+      }));
+
+      const grouped = new Map();
+      for (const item of allItems) {
+        const key = item.category || 'القائمة';
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push({ name: item.name, price: item.price });
+      }
+      menuCategories = Array.from(grouped.entries()).map(([category, items]) => ({ category, items }));
+    } else {
+      menuCategories = await scraperMenu(appKey, chosen.url);
+      allItems = menuCategories.flatMap((cat) =>
+        cat.items.map((item) => ({ ...item, category: cat.category }))
+      );
+    }
 
     if (allItems.length === 0) {
-      await ctx.api.editMessageText(ctx.chat.id, loadingMsg.message_id,
-        `⚠️ ما قدرت أجيب المنيو. أدخل المنيو يدوياً بـ /menu`
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        loadingMsg.message_id,
+        `⚠️ ما قدرت أجيب منيو *${chosen.name}* حالياً. جرّب مطعم ثاني أو التطبيق الآخر.`,
+        { parse_mode: 'Markdown' }
       );
       return;
     }
@@ -154,33 +231,143 @@ async function handleRestaurantPick(ctx, groupId, resultIndex) {
       group_id: groupId,
       group_title: ctx.chat.title || '',
       restaurant: chosen.name,
-      delivery_app: pending.appKey,
+      delivery_app: appKey,
       restaurant_url: chosen.url,
     });
 
     const sessionId = session.lastInsertRowid;
-    insertMenuItems(allItems.map(i => ({ session_id: sessionId, ...i })));
+    insertMenuItems(allItems.map((i) => ({ session_id: sessionId, ...i })));
 
     let menuText = `🍽️ *منيو ${chosen.name}*\n\n`;
-    menuCategories.forEach(cat => {
-      if (cat.category) menuText += `*${cat.category}*\n`;
-      cat.items.forEach(item => {
+    for (const category of menuCategories) {
+      if (category.category) menuText += `*${category.category}*\n`;
+      for (const item of category.items) {
         menuText += `• ${item.name} — ${item.price.toFixed(2)} ريال\n`;
-      });
+      }
       menuText += '\n';
-    });
+      if (menuText.length > 3500) {
+        menuText += '...\n(تم اختصار عرض المنيو لكبر الحجم)';
+        break;
+      }
+    }
 
     await ctx.api.deleteMessage(ctx.chat.id, loadingMsg.message_id);
     await ctx.reply(menuText, { parse_mode: 'Markdown' });
+    if (cachedItems.length > 0) {
+      await ctx.reply('⚡ تم استخدام نسخة منيو محفوظة محلياً (Cache).');
+    }
     await ctx.reply(
-      `🍔 *الطلب فُتح من ${chosen.name}!*\n\nكلٌّ يكتب طلبه في الجروب الآن 👇\n\n` +
-      `📢 اللي ما كلّم البوت خاص — يرسل له /start الآن عشان يوصله المبلغ`,
+      `🍔 *الطلب فُتح من ${chosen.name}!*\n\nكل واحد يكتب طلبه في الجروب الآن 👇`,
       { parse_mode: 'Markdown' }
     );
   } catch (err) {
     console.error('Menu load error:', err.message);
-    await ctx.api.editMessageText(ctx.chat.id, loadingMsg.message_id,
-      `⚠️ ما قدرت أحمّل المنيو. جرب /menu لإدخاله يدوياً.`
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      '⚠️ صار خطأ أثناء تحميل المنيو. جرّب مطعم ثاني.'
+    );
+  }
+}
+
+async function handleSyncKeetaCommand(ctx) {
+  if (ctx.chat.type === 'private') {
+    await ctx.reply('استخدم الأمر داخل القروب.');
+    return;
+  }
+
+  const chatMember = await ctx.getChatMember(ctx.from.id);
+  const isAdminOrCreator = ['administrator', 'creator'].includes(chatMember.status);
+  if (!isAdminOrCreator) {
+    await ctx.reply('❌ فقط الإداري يقدر يشغّل المزامنة.');
+    return;
+  }
+
+  const args = ctx.message.text?.split(' ').slice(1);
+  const query = (args && args[0]) ? args.join(' ').trim() : 'ال';
+
+  const startMsg = await ctx.reply(`🚚 بدء مزامنة كيتا للبحث: *${query}*\nقد تستغرق دقيقتين...`, { parse_mode: 'Markdown' });
+
+  try {
+    const seedQueries = [query, 'ا', 'ال', 'برجر', 'شاورما', 'بيتزا'];
+    const byUrl = new Map();
+
+    const isRealKeetaRestaurant = (result) => {
+      if (!result || !result.url || !result.name) return false;
+      if (result.manual) return false;
+
+      try {
+        const parsed = new URL(result.url);
+        if (!parsed.hostname.includes('keeta.com')) return false;
+        if (parsed.pathname === '/' || parsed.pathname.startsWith('/search')) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    for (const seed of seedQueries) {
+      const results = await scraperSearch('keeta', seed);
+      for (const result of results) {
+        if (!isRealKeetaRestaurant(result)) continue;
+        if (!byUrl.has(result.url)) byUrl.set(result.url, result);
+      }
+      if (byUrl.size >= 20) break;
+    }
+
+    const candidates = Array.from(byUrl.values()).slice(0, 12);
+
+    if (candidates.length === 0) {
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        startMsg.message_id,
+        '❌ ما لقيت روابط مطاعم حقيقية من كيتا حالياً (النتائج كانت fallback/صفحات عامة).\n\n' +
+        'جرّب لاحقاً أو ابدأ طلب عادي، وإذا اشتغل جلب منيو لمطعم معين راح ينحفظ تلقائيًا في الكاش.'
+      );
+      return;
+    }
+
+    let synced = 0;
+    let failed = 0;
+    let emptyMenu = 0;
+
+    for (const restaurant of candidates) {
+      try {
+        const menuCategories = await scraperMenu('keeta', restaurant.url);
+        const allItems = menuCategories.flatMap((cat) =>
+          cat.items.map((item) => ({ ...item, category: cat.category }))
+        );
+        if (allItems.length === 0) {
+          emptyMenu++;
+          failed++;
+          continue;
+        }
+
+        const session = createSession({
+          group_id: `sync_keeta_${Date.now()}`,
+          group_title: 'sync-cache',
+          restaurant: restaurant.name,
+          delivery_app: 'keeta',
+          restaurant_url: restaurant.url,
+        });
+
+        insertMenuItems(allItems.map((i) => ({ session_id: session.lastInsertRowid, ...i })));
+        synced++;
+      } catch {
+        failed++;
+      }
+    }
+
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      startMsg.message_id,
+      `✅ تمت مزامنة كيتا\n\nالمحفوظ: ${synced}\nالفاشل: ${failed}\nبدون منيو: ${emptyMenu}\nالمحاولات: ${candidates.length}`
+    );
+  } catch (err) {
+    await ctx.api.editMessageText(
+      ctx.chat.id,
+      startMsg.message_id,
+      `❌ فشلت المزامنة: ${err.message}`
     );
   }
 }
@@ -258,36 +445,16 @@ async function handleDoneCommand(ctx, groupId, requesterId) {
   closeSession(session.id);
 
   const orders = getSessionOrders(session.id);
-  const confirmed = orders.filter(o => o.confirmed);
+  const summary = buildOrderSummary(session.restaurant, orders);
 
-  await ctx.reply(`✅ *تم إغلاق الطلب!* جاري إرسال المبالغ للجميع...`, { parse_mode: 'Markdown' });
-
-  let dmFailCount = 0;
-  for (const order of confirmed) {
-    try {
-      const dmText = buildUserDM(order, session.restaurant);
-      await ctx.api.sendMessage(order.user_id, dmText, { parse_mode: 'Markdown' });
-      markDmSent(order.id);
-    } catch {
-      dmFailCount++;
-    }
-  }
-
-  const adminId = requesterId;
-  const summary = buildAdminSummary(session.restaurant, orders);
-  try {
-    await ctx.api.sendMessage(adminId, summary, { parse_mode: 'Markdown' });
-  } catch {
-    await ctx.reply(summary, { parse_mode: 'Markdown' });
-  }
-
-  if (dmFailCount > 0) {
-    await ctx.reply(`⚠️ ${dmFailCount} شخص ما وصله الرسالة الخاصة (ما كلّم البوت من قبل).`);
-  }
+  await ctx.reply(`✅ *تم إغلاق الطلب!*`, { parse_mode: 'Markdown' });
+  await ctx.reply(summary, { parse_mode: 'Markdown' });
 }
 
 module.exports = {
+  handleStartCommand,
   handleGroupMessage,
+  handleSyncKeetaCommand,
   handleAppSelection,
   handleRestaurantPick,
   handleConfirmOrder,

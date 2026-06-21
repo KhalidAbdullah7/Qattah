@@ -29,5 +29,5 @@ if not exist .env (
 
 echo  جاري تشغيل البوت...
 echo.
-node index.js
+node --env-file=.env index.js
 pause

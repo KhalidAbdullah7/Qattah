@@ -1,16 +1,16 @@
-require('dotenv').config();
 const { Bot, session } = require('grammy');
 const { BOT_TOKEN, API_PORT } = require('./config');
 const { getSetting, getActiveSession, getSessionOrders } = require('./database');
 const { startServer } = require('./server');
 const {
+  handleStartCommand,
   handleGroupMessage,
+  handleSyncKeetaCommand,
   handleAppSelection,
   handleRestaurantPick,
   handleConfirmOrder,
   handleDoneCommand,
 } = require('./handlers/group');
-const { handlePrivateStart, handleSettings, handleSetCommand } = require('./handlers/private');
 
 const token = BOT_TOKEN || getSetting('bot_token') || process.env.BOT_TOKEN;
 if (!token) {
@@ -22,16 +22,8 @@ const bot = new Bot(token);
 
 bot.use(session({ initial: () => ({}) }));
 
-bot.command('start', async (ctx) => {
-  if (ctx.chat.type === 'private') {
-    await handlePrivateStart(ctx);
-  } else {
-    await ctx.reply('أهلاً! أنا بوت قطة الدوام. اكتب "نطلب من [اسم المطعم]" لبدء طلب جماعي.');
-  }
-});
-
-bot.command('settings', handleSettings);
-bot.command('set', handleSetCommand);
+bot.command('start', handleStartCommand);
+bot.command('sync_keeta', handleSyncKeetaCommand);
 
 bot.command('order', async (ctx) => {
   const args = ctx.message.text?.split(' ').slice(1).join(' ').trim();
@@ -81,10 +73,10 @@ bot.on('callback_query:data', async (ctx) => {
     await handleAppSelection(ctx, appKey, groupId);
   } else if (data.startsWith('pick:')) {
     const [, gId, idx] = data.split(':');
-    await handleRestaurantPick(ctx, gId, parseInt(idx));
+    await handleRestaurantPick(ctx, gId, parseInt(idx, 10));
   } else if (data.startsWith('confirm:')) {
     const [, sessionId, userId] = data.split(':');
-    await handleConfirmOrder(ctx, parseInt(sessionId), userId);
+    await handleConfirmOrder(ctx, parseInt(sessionId, 10), userId);
   } else if (data.startsWith('edit:')) {
     await ctx.answerCallbackQuery();
     await ctx.reply('اكتب طلبك مجدداً وسأعدّله 📝');

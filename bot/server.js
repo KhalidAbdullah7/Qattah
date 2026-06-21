@@ -25,15 +25,13 @@ app.get('/api/sessions/:id', (req, res) => {
 
 app.get('/api/settings', (req, res) => {
   res.json({
-    stcpay_number: getSetting('stcpay_number') || '',
-    iban: getSetting('iban') || '',
-    account_name: getSetting('account_name') || '',
+    claude_api_key: getSetting('claude_api_key') ? 'configured' : '',
     api_port: getSetting('api_port') || '3001',
   });
 });
 
 app.put('/api/settings', (req, res) => {
-  const allowed = ['stcpay_number', 'iban', 'account_name', 'claude_api_key'];
+  const allowed = ['claude_api_key'];
   for (const [key, value] of Object.entries(req.body)) {
     if (allowed.includes(key)) setSetting(key, value);
   }

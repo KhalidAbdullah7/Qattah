@@ -79,6 +79,14 @@ const _upsertOrder = db.prepare(`
 const _getOrder = db.prepare('SELECT * FROM orders WHERE session_id = ? AND user_id = ?');
 const _getSessionOrders = db.prepare('SELECT * FROM orders WHERE session_id = ? ORDER BY created_at');
 const _markDmSent = db.prepare('UPDATE orders SET dm_sent = 1 WHERE id = ?');
+const _getLatestMenuForRestaurant = db.prepare(`
+  SELECT m.category, m.name, m.price
+  FROM menu_items m
+  INNER JOIN sessions s ON s.id = m.session_id
+  WHERE s.delivery_app = ?
+    AND LOWER(TRIM(s.restaurant)) = LOWER(TRIM(?))
+  ORDER BY s.id DESC, m.id ASC
+`);
 
 const _getSessions = db.prepare(`
   SELECT s.*, COUNT(o.id) as order_count, COALESCE(SUM(o.total), 0) as grand_total
@@ -105,5 +113,7 @@ module.exports = {
   getOrder: (sessionId, userId) => _getOrder.get(sessionId, userId),
   getSessionOrders: (sessionId) => _getSessionOrders.all(sessionId),
   markDmSent: (orderId) => _markDmSent.run(orderId),
+  getLatestMenuForRestaurant: (deliveryApp, restaurant) =>
+    _getLatestMenuForRestaurant.all(deliveryApp, restaurant),
   getSessions: () => _getSessions.all(),
 };
